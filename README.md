@@ -1,6 +1,6 @@
 Online metric algorithms with untrusted predictions
 ===================================================
-
+Antonios Antoniadis, Christian Coester, Marek Elias, Adam Polak and Bertrand Simon
 
 Dependencies
 ------------
