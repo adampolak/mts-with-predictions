@@ -32,6 +32,13 @@ def PredRandom(requests,sigma):
 
   return noise + next_occ
   
+# emulates LRU predictions
+def PredLRU(requests):
+  infinity = len(requests)
+  pred = []
+  for t, request in enumerate(requests):
+      pred.append(-t)
+  return pred
 
 # Prediction PLECO tailored for the BK dataset (DOI: 10.1145/2566486.2568018)
 # Note: expensive computations, quadratic in len(requests)

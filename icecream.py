@@ -57,29 +57,41 @@ def Greedy(requests):
 def ComputeDP(requests):
   DP = [(0,0),]
   for request in requests:
+    PREV = DP[-1][::]
     if request == 'V':
       DP.append((
-        VANILLA_COST + min(DP[-1][0], DP[-1][1] + SWITCHING_COST),
-        VANILLA_COST * MISMATCH_FACTOR + min(DP[-1][0] + SWITCHING_COST, DP[-1][1])))
+        VANILLA_COST + min(PREV[0], PREV[1] + SWITCHING_COST),
+        VANILLA_COST * MISMATCH_FACTOR + min(PREV[0] + SWITCHING_COST, PREV[1])))
     else:
       DP.append((
-        CHOCOLATE_COST * MISMATCH_FACTOR + min(DP[-1][0], DP[-1][1] + SWITCHING_COST),
-        CHOCOLATE_COST + min(DP[-1][0] + SWITCHING_COST, DP[-1][1])))
+        CHOCOLATE_COST * MISMATCH_FACTOR + min(PREV[0], PREV[1] + SWITCHING_COST),
+        CHOCOLATE_COST + min(PREV[0] + SWITCHING_COST, PREV[1])))
   return DP
 
 
 def Opt(requests, error_probability=0.0):
-  DP = ComputeDP(requests)
+  DP = ComputeDP(requests[::-1])[::-1]
   solution = []
-  j = DP[-1].index(min(DP[-1]))
-  for i in range(len(requests), 0, -1):
-    solution.append('VC'[j])
-    request_i = 'VC'.index(requests[i - 1])
-    if DP[i][j] < DP[i - 1][j] + (VANILLA_COST, CHOCOLATE_COST)[request_i] * (MISMATCH_FACTOR if j != request_i else 1):
-      if random.random() < error_probability:
-        continue
+  j = DP[0].index(min(DP[0]))
+  for i in range(len(requests)):
+    request_i = 'VC'.index(requests[i])
+    if DP[i][1 - j] + SWITCHING_COST < DP[i][j]:
       j = 1 - j
-  return solution[::-1]
+    if random.random() < error_probability:
+      j = 1 - j
+    solution.append('VC'[j])
+  assert error_probability > 0 or round(EvaluateSolution(requests, solution)) == round(min(DP[0]))
+  return solution
+
+
+def FtP(requests, predictions):
+  solution = []
+  for request, prediction in zip(requests, predictions):
+    if request == 'C' and prediction == 'V':
+      solution.append('C')
+    else:
+      solution.append(prediction)
+  return solution
 
 
 def WorkFunction(requests):
@@ -111,7 +123,7 @@ def CombineDeterministic(requests, solutions, gamma=0.01):
   return solution
 
 
-def CombineRandomized(requests, solutions, epsilon=0.1):
+def CombineRandomized(requests, solutions, epsilon=0.01):
   assert len(solutions) == 2  # we don't implement combining more than two algorithms
   costs = [EvaluateSolutionStepByStep(requests, solution) for solution in solutions]
   weights = (0.5, 0.5)
@@ -136,12 +148,12 @@ def main():
     # ('SilyRandom', Random),
     # ('Random', LazyRandom),
     # ('Greedy (1.25-competitive)', Greedy),
-    ('Work-Function algorithm', WorkFunction),
+    ('Work Function', WorkFunction),
   )
   ALGORITHMS_WITH_PREDICTIONS = (
-    ('Follow predictions blindly', lambda requests, predictions: predictions),
-    ('Deterministic combination', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)))),
-    ('Randomized combination', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)))),
+    ('FtP', lambda requests, predictions: predictions),
+    ('RobustFtP deterministic', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)))),
+    ('RobustFtP randomized', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)))),
     # ('Deterministic (gamma=0.1)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.1)),
     # ('Deterministic (gamma=0.01)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.01)),
     # ('Deterministic (gamma=0.001)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.001)),
@@ -164,7 +176,7 @@ def main():
       for k, (_, algorithm) in enumerate(ALGORITHMS_ONLINE):
         costs[k][0] += EvaluateSolution(requests, algorithm(requests))
       for i, p in enumerate(ERROR_PROBABILITIES):
-        predictions = Opt(requests, p)
+        predictions = FtP(requests, Opt(requests, p))
         for k, (_, algorithm) in enumerate(ALGORITHMS_WITH_PREDICTIONS):
           costs[k + len(ALGORITHMS_ONLINE)][i] += EvaluateSolution(requests, algorithm(requests, predictions))
 
@@ -180,6 +192,7 @@ def main():
   plt.rcParams.update({
     'pgf.texsystem': 'pdflatex',
     'font.family': 'serif',
+    'font.size': 9,
     'pgf.rcfonts': False,
   })
 
@@ -187,15 +200,15 @@ def main():
   for k, (label, algorithm) in list(enumerate(ALGORITHMS))[1:]:  # ignore OPT
     plt.plot(ERROR_PROBABILITIES, [x / costs[0][0] for x in costs[k]], label=label, ls=LINES[(k - 1) % len(LINES)])
 
-  plt.xlabel('Error probability of synthetic predictor')
-  plt.ylabel('Competitive ratio')
+  xlabel = plt.xlabel('Error probability of the synthetic predictor')
+  ylabel = plt.ylabel('Competitive ratio')
   plt.legend(loc='upper left')
-  plt.ylim(0.999, 1.059)
+  plt.ylim(0.999, 1.109)
   plt.savefig('icecream.png', dpi=150)
-  plt.gcf().set_size_inches(w=4.5, h=3.5)
-  plt.savefig('icecream.pgf')
+  plt.gcf().set_size_inches(w=3.25, h=2.25)
+  plt.savefig('icecream.pgf', bbox_extra_artists=[xlabel, ylabel], bbox_inches='tight')
   plt.show()
- 
+
 
 if __name__ == '__main__':
   main()

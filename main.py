@@ -41,14 +41,16 @@ def TryAllAlgorithmsAndPredictors(k, datasets, num_runs=1):
   LABELS = [algorithm.__name__ for algorithm in ALGORITHMS_ONLINE]
 
   PREDICTORS_NEXT = (
+    algorithms.PredLRU,  # LRU predictions
     algorithms.PredPLECO_BK,  # PLECO predictions, designed for the BK dataset
     algorithms.PredPopularity,  # simple ad-hoc POPU predictions
   )
+  LABELS += [algorithm.__name__ + '+LRU' for algorithm in ALGORITHMS_PRED_NEXT]
   LABELS += [algorithm.__name__ + '+PLECO' for algorithm in ALGORITHMS_PRED_NEXT]
   LABELS += [algorithm.__name__ + '+Popu' for algorithm in ALGORITHMS_PRED_NEXT]
 
   PREDICTORS_CACHE = (
-    lambda requests: algorithms.LRU(requests, k),
+    lambda requests: algorithms.FollowPred(requests, k, algorithms.PredLRU(requests)),
     lambda requests: algorithms.FollowPred(requests, k, algorithms.PredPLECO_BK(requests)),
     lambda requests: algorithms.FollowPred(requests, k, algorithms.PredPopularity(requests)),
   )
@@ -185,6 +187,7 @@ def PlotPredRandom(k, datasets, num_runs, output_basename=None, load_json=None, 
   plt.rcParams.update({
     'pgf.texsystem': 'pdflatex',
     'font.family': 'serif',
+    'font.size': 9,
     'pgf.rcfonts': False,
   })
   LINE = iter(itertools.product(['', '.', '+', 'x'], ['-', '--', '-.', ':']))
@@ -196,22 +199,23 @@ def PlotPredRandom(k, datasets, num_runs, output_basename=None, load_json=None, 
     label = KEEP[label]
     mk, ls = next(LINE)
     plots[label] = plt.plot(SIGMAS, ratios, label=label, markersize=5, marker=mk, ls=ls)[0]
-  plt.xlabel('Noise parameter $\sigma$ of the synthetic predictor')
-  plt.ylabel('Competitive ratio')
+  xlabel = plt.xlabel('Noise parameter $\sigma$ of the synthetic predictor')
+  ylabel = plt.ylabel('Competitive ratio')
   if style == 'appendix':
-    plt.gcf().set_size_inches(w=8, h=5)
+    plt.gcf().set_size_inches(w=5.75, h=3)
     plt.gcf().tight_layout()
     box = plt.gca().get_position()
     plt.gca().set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4)
+    plt.legend(loc='lower right', ncol=4)
   else:
     assert style in ('paper', 'slides')
-    plt.gcf().set_size_inches(w=4.5, h=3.5)
-    plt.legend(loc='lower right')
+    plt.gcf().set_size_inches(w=3.25, h=2.5)
+    legend = plt.legend(loc='lower right')
   if output_basename:
     if style in ('paper', 'appendix'):
       plt.savefig(output_basename + '.png', dpi=150)
-      plt.savefig(output_basename + '.pgf')
+      plt.savefig(output_basename + '.pgf',
+        bbox_extra_artists=[xlabel, ylabel], bbox_inches='tight')
     else:
       assert style == 'slides'
       SLIDES = (
@@ -231,7 +235,8 @@ def PlotPredRandom(k, datasets, num_runs, output_basename=None, load_json=None, 
             plot.set_label('_' + label)
         plt.legend(loc='lower right')
         plt.savefig(output_basename + str(i) + '.png', dpi=150)
-        plt.savefig(output_basename + str(i) + '.pgf')
+        plt.savefig(output_basename + str(i) + '.pgf',
+           bbox_extra_artists=[xlabel, ylabel], bbox_inches='tight')
   else:
     plt.show()
 
