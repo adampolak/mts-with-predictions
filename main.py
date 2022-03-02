@@ -180,7 +180,7 @@ def PlotPredRandom(k, datasets, num_runs, output_basename=None, load_json=None, 
     "LazyTrustDoubt" : "Trust\&Doubt",
     "FollowPred" : "FtP",
     "PredMarker" : "L\&V",  # L&V guaranteed algorithm
-    "Rnd(Marker,FollowPred)[eps=0.010000]" : "RobustFtP",
+    "Rnd(Marker,FollowPred)[eps=0.500000]" : "RobustFtP",
   }
   if style in ('appendix', 'slides'):
     KEEP.update({"LMarker" : "LMarker", "LNonMarker" : "LNonMarker"})
@@ -206,6 +206,7 @@ def PlotPredRandom(k, datasets, num_runs, output_basename=None, load_json=None, 
     plt.gcf().tight_layout()
     box = plt.gca().get_position()
     plt.gca().set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
+    # legend = plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4)
     plt.legend(loc='lower right', ncol=4)
   else:
     assert style in ('paper', 'slides')
@@ -245,8 +246,8 @@ def PlotEpsilon(k, datasets):
   EPSILONS = [0.5, 0.1, 0.01, 0.001]
   ALGORITHMS_ONLINE = (algorithms.OPT, algorithms.LRU)
   ALGORITHMS_PRED = (
-    algorithms.FollowPred,
-    algorithms.Combdet_lambda([algorithms.LRU, algorithms.FollowPred]),
+    algorithms.FollowPred,) + tuple(
+    algorithms.Combdet_lambda([algorithms.LRU, algorithms.FollowPred], eps) for eps in EPSILONS
   ) + tuple(
     algorithms.Combrand_lambda([algorithms.LRU, algorithms.FollowPred], eps)
     for eps in EPSILONS)

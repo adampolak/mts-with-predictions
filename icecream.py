@@ -123,20 +123,24 @@ def CombineDeterministic(requests, solutions, gamma=0.01):
   return solution
 
 
-def CombineRandomized(requests, solutions, epsilon=0.01):
+def CombineRandomized(requests, solutions, epsilon=0.5):
+
+  beta = 1.0 - 0.5 * epsilon
   assert len(solutions) == 2  # we don't implement combining more than two algorithms
   costs = [EvaluateSolutionStepByStep(requests, solution) for solution in solutions]
   weights = (0.5, 0.5)
   current_algorithm = 0
   solution = []
   for i in range(len(requests)):
-    new_weights = tuple(weight * (1. - epsilon) ** costs[i] for weight, costs in zip(weights, costs))
+    new_weights = tuple(weight * (beta) ** costs[i] for weight, costs in zip(weights, costs))
     total = sum(new_weights)
     new_weights = tuple(weight / total for weight in new_weights)
+    
     if new_weights[current_algorithm] < weights[current_algorithm]:
-      if random.random() > (weights[current_algorithm] - new_weights[current_algorithm]) / weights[current_algorithm]:
+      if random.random() < (weights[current_algorithm] - new_weights[current_algorithm]) / weights[current_algorithm]:
         current_algorithm = 1 - current_algorithm
     solution.append(solutions[current_algorithm][i])
+    weights = new_weights    
   return solution
 
 ### Main
@@ -154,12 +158,14 @@ def main():
     ('FtP', lambda requests, predictions: predictions),
     ('RobustFtP deterministic', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)))),
     ('RobustFtP randomized', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)))),
-    # ('Deterministic (gamma=0.1)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.1)),
-    # ('Deterministic (gamma=0.01)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.01)),
-    # ('Deterministic (gamma=0.001)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.001)),
-    # ('Randomized (epsilon=0.1)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.1)),
-    # ('Randomized (epsilon=0.01)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.01)),
-    # ('Randomized (epsilon=0.001)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.001)),
+#     ('Deterministic (gamma=0.1)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.1)),
+#     ('Deterministic (gamma=0.01)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.01)),
+#     ('Deterministic (gamma=0.001)', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests)), gamma=0.001)),
+#     ('Randomized (epsilon=0.5)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.5)),
+#     ('Randomized (epsilon=0.3)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.3)),
+#     ('Randomized (epsilon=0.1)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.1)),
+#     ('Randomized (epsilon=0.01)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.01)),
+#     ('Randomized (epsilon=0.001)', lambda requests, predictions: CombineRandomized(requests, (predictions, WorkFunction(requests)), epsilon=0.001)),
     # ('Everything', lambda requests, predictions: CombineDeterministic(requests, (predictions, WorkFunction(requests), CombineRandomized(requests, (predictions, WorkFunction(requests)))))),
   )
   ALGORITHMS = ALGORITHMS_ONLINE + ALGORITHMS_WITH_PREDICTIONS

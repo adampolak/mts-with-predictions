@@ -39,6 +39,7 @@ def PredLRU(requests):
   for t, request in enumerate(requests):
       pred.append(-t)
   return pred
+  
 
 # Prediction PLECO tailored for the BK dataset (DOI: 10.1145/2566486.2568018)
 # Note: expensive computations, quadratic in len(requests)
@@ -403,6 +404,7 @@ def TrustDoubt(requests, k, pred):
           else:
             clean_evict[q] = random.choice(candidates)
           trusted[q] = False
+          interval_arrivals[q] = len(arrival)
           break
 
       # step 4: regularly (i.e., after some number of arrivals), evict p_q and put back in the cache an unmarked page     
@@ -480,7 +482,10 @@ def Lazy_update(cache1, cache2, request, last_used, t):
 # Combine randomly 2 algorithms
 # algs: list of algorithms to combine
 # parameterized by epsilon
-def Combine_rand(requests, k, pred, algs, epsilon=0.01, LAZY=True):
+def Combine_rand(requests, k, pred, algs, epsilon=0.5, LAZY=True):
+  
+  beta = 1.0 - 0.5 * epsilon
+  
   m = len(algs)
   assert m==2
   histories = list(map(lambda x: x(requests, k, pred), algs))
@@ -492,13 +497,13 @@ def Combine_rand(requests, k, pred, algs, epsilon=0.01, LAZY=True):
     
   for t, request in enumerate(requests):
     loss = list(map(lambda x: Cache_cost(x[t],x[t+1]), histories))
-    new_weights = [w*(1-epsilon)**l for w,l in zip(weights,loss)]
+    new_weights = [w*(beta)**l for w,l in zip(weights,loss)]
     total_weights = sum(new_weights)
     new_probs = [w / total_weights for w in new_weights]
 
 
     if (new_probs[cur_alg] < probs[cur_alg]):
-      cur_alg =  1-cur_alg if (random.random() > (probs[cur_alg] - new_probs[cur_alg])/probs[cur_alg]) else cur_alg
+      cur_alg =  cur_alg if (random.random() > (probs[cur_alg] - new_probs[cur_alg])/probs[cur_alg]) else 1-cur_alg
 
     probs = new_probs
     weights = new_weights
@@ -514,8 +519,8 @@ def Combine_rand(requests, k, pred, algs, epsilon=0.01, LAZY=True):
 
 # Combine deterministically 2 algorithms
 # algs: list of algorithms to combine
-# parameterized by gamma
-def Combine_det(requests, k, pred, algs, gamma=1.0, LAZY=True):
+# parameterized by gamma < 1
+def Combine_det(requests, k, pred, algs, gamma=0.01, LAZY=True):
   m = len(algs)
   cur_alg = 0
   costs = [0] * m
@@ -539,7 +544,7 @@ def Combine_det(requests, k, pred, algs, gamma=1.0, LAZY=True):
 
 ### predefined combining schemes
 
-def Combrand_lambda(algs, epsilon=0.01):
+def Combrand_lambda(algs, epsilon=0.5):
   algorithm = lambda requests, k, pred=[]: Combine_rand(requests, k, pred, algs, epsilon)
   algorithm.__name__ = 'Rnd(' + ','.join(alg.__name__ for alg in algs) + ')' + ('[eps=%f]' % epsilon)
   return algorithm
@@ -547,7 +552,7 @@ def Combrand_lambda(algs, epsilon=0.01):
 
 def Combdet_lambda(algs, gamma=0.01):
   algorithm = lambda requests, k, pred=[]: Combine_det(requests, k, pred, algs, gamma)
-  algorithm.__name__ = 'Det(' + ','.join(alg.__name__ for alg in algs) + ')' + ('[gamma=%f]' % gamma)
+  algorithm.__name__ = 'Det(' + ','.join(alg.__name__ for alg in algs) + ')' + ('[gamma=1+%f]' % gamma)
   return algorithm
 
 # Rohatgi's best algorithm
